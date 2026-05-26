@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraFlow\Console;
+namespace LaraFlow\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
