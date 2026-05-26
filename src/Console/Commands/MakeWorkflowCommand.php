@@ -18,7 +18,7 @@ class MakeWorkflowCommand extends Command
 
         if (File::exists($targetFolder)) {
             $this->error("O fluxo para {$name} já existe!");
-            return Command::FAILURE;
+            return 0;
         }
 
         File::makeDirectory($targetFolder, 0755, true);
@@ -30,7 +30,7 @@ class MakeWorkflowCommand extends Command
         $this->generateFile('action.workflow.stub', "{$targetFolder}/Actions/ExecutarAcao{$name}.php", $namespace, $name);
 
         $this->info("🚀 Estrutura de Workflow para [{$name}] criada com sucesso no projeto local!");
-        return Command::SUCCESS;
+        return 1;
     }
 
     protected function generateFile(string $stubName, string $destination, string $namespace, string $class): void

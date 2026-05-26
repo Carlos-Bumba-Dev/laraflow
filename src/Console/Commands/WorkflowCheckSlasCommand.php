@@ -18,13 +18,11 @@ class WorkflowCheckSlasCommand extends Command
     {
         $this->info("Iniciando varredura e higienização de SLAs corporativos...");
 
-        // 1. PERFORMANCE & ARQUITETURA: Em vez de varrer a tabela gigante de históricos,
-        // nós varremos apenas a tabela de mapeamento de extensões e os modelos que implementam a trait do LaraFlow.
-        // Nota: Para este motor automatizado, o ideal é consultar os modelos ativos cujo status possui SLA.
+        $extensionsTable = config('laraflow.sla.extensions_table');
 
-        // Vamos simular a captura das classes que estão sob monitoramento de histórico.
-        // Em produção, podes listar os models mapeados no config do teu package.
-        $monitoredModels = $this->option('model') ? [$this->option('model')] : $this->getRegisteredWorkflowModels();
+        $monitoredModels = $this->option('model')
+            ? [$this->option('model')]
+            : $this->getRegisteredWorkflowModels();
 
         foreach ($monitoredModels as $modelClass) {
             if (!method_exists($modelClass, 'statusHistories')) {
@@ -33,9 +31,7 @@ class WorkflowCheckSlasCommand extends Command
 
             $this->comment("Varrendo instâncias ativas de: {$modelClass}");
 
-            // Buscamos apenas os registros cujo status atual implementa o contrato de SLA
-            // Usamos chunk para evitar estouro de memória RAM (Prática Enterprise)
-            $modelClass::query()->chunk(100, function ($models) use ($modelClass) {
+            $modelClass::query()->chunk(100, function ($models) use ($modelClass, $extensionsTable) {
                 foreach ($models as $model) {
 
                     $stateInstance = $model->status;
@@ -45,7 +41,6 @@ class WorkflowCheckSlasCommand extends Command
                         continue;
                     }
 
-                    // Captura o momento em que entrou neste estado específico (último registro do histórico)
                     $latestTransition = $model->statusHistories()
                         ->where('to_state', $stateClass)
                         ->latest('id')
@@ -58,9 +53,8 @@ class WorkflowCheckSlasCommand extends Command
                     $entryTime = Carbon::parse($latestTransition->created_at);
                     $minutesSpent = now()->diffInMinutes($entryTime);
 
-                    // Cálculo do timeout dinâmico considerando extensões concedidas
                     $baseMinutes = $stateInstance->slaTimeoutInMinutes();
-                    $totalExtensions = DB::table('workflow_extensions')
+                    $totalExtensions = DB::table($extensionsTable)
                         ->where('model_type', $modelClass)
                         ->where('model_id', $model->id)
                         ->where('state', $stateClass)
@@ -69,14 +63,12 @@ class WorkflowCheckSlasCommand extends Command
                     $slaTimeout = $baseMinutes + $totalExtensions;
                     $id = $model->getKey();
 
-                    // Executa a validação de camadas sob isolamento transacional e Lock de linha
                     DB::transaction(function () use ($model, $stateInstance, $stateClass, $minutesSpent, $slaTimeout, $id) {
 
-                        // Recarrega travando para evitar concorrência com requisições HTTP simultâneas
                         $lockedModel = $model->newQuery()->lockForUpdate()->find($id);
 
                         if (!$lockedModel || get_class($lockedModel->status) !== $stateClass) {
-                            return; // O estado mudou nos milissegundos anteriores, ignora.
+                            return;
                         }
 
                         // =========================================================================
@@ -85,11 +77,9 @@ class WorkflowCheckSlasCommand extends Command
                         if ($minutesSpent >= $slaTimeout) {
                             $this->warn("🚨 ID #{$id} estourou o prazo máximo ({$minutesSpent}/{$slaTimeout} min). Movendo para fallback final.");
 
-                            // Dispara evento forense antes de mover
                             $minutesOverdue = $minutesSpent - $slaTimeout;
                             event(new SlaBreached($lockedModel, $stateClass, $minutesOverdue));
 
-                            // Executa a transição compulsória automática usando a nossa GenericTransition interna
                             $lockedModel->status->transitionTo($stateInstance->autoTransitionTo(), [
                                 'reason' => "Transição compulsória automática: Violação crítica de SLA excedida por {$minutesOverdue} minutos."
                             ]);
@@ -116,12 +106,9 @@ class WorkflowCheckSlasCommand extends Command
         }
 
         $this->info("Varredura e mitigação de SLAs concluída.");
-        return Command::SUCCESS;
+        return 1;
     }
 
-    /**
-     * Auxiliar para obter os modelos registrados que utilizam o ecossistema.
-     */
     protected function getRegisteredWorkflowModels(): array
     {
         return config('laraflow.monitored_models', []);
