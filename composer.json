@@ -1,5 +1,5 @@
 {
-    "name": "bumba/laraflow",
+    "name": "dev-bumba/laraflow",
     "description": "An active temporal orchestration and declarative workflow engine for Laravel.",
     "keywords": [
         "laravel",
