@@ -11,6 +11,7 @@
     ],
     "license": "MIT",
     "type": "library",
+    "version": "1.0",
     "authors": [
         {
             "name": "Bumba",
