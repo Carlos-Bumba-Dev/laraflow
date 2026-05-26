@@ -124,7 +124,7 @@ class GenericTransition extends Transition
                 }
 
                 // Captura em propriedade para evitar referência mutável via closure.
-                $this->oldStateLivewire = $lockedModel->status->toLivewire();
+                $this->oldStateLivewire = $lockedModel->status->getMorphClass();
 
                 $lockedModel->status = $this->targetState;
                 $lockedModel->save();
@@ -133,7 +133,7 @@ class GenericTransition extends Transition
                 if (method_exists($lockedModel, 'recordStatusHistory')) {
                     $lockedModel->recordStatusHistory(
                         $this->oldStateLivewire,
-                        $this->targetState->toLivewire(),
+                        $this->targetState->getMorphClass(),
                         $this->payload,
                         $operatorUserId,
                         $this->force
@@ -160,7 +160,7 @@ class GenericTransition extends Transition
             event(new WorkflowTransitioned(
                 model:     $this->model,
                 fromState: $this->oldStateLivewire,
-                toState:   $this->targetState->toLivewire(),
+                toState:   $this->targetState->getMorphClass(),
                 payload:   $this->payload,
                 userId:    $operatorUserId,
                 isForced:  $this->force
