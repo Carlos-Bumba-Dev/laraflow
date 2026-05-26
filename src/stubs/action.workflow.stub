@@ -1,0 +1,20 @@
+<?php
+
+namespace {{namespace}}\Actions;
+
+use App\States\Core\Contracts\TransitionAction;
+use Illuminate\Database\Eloquent\Model;
+
+class ExecutarAcao{{class}} implements TransitionAction
+{
+    /**
+     * Executa efeitos colaterais (atualizações, disparos de eventos, e-mails, APIs).
+     * 
+     * @param \Illuminate\Database\Eloquent\Model $model
+     * @param array $payload Dados enviados na requisição/transição
+     */
+    public function execute(Model $model, array $payload): void
+    {
+        // Efeito colateral isolado
+    }
+}

@@ -1,0 +1,58 @@
+{
+    "name": "bumba/laraflow",
+    "description": "An active temporal orchestration and declarative workflow engine for Laravel.",
+    "keywords": [
+        "laravel",
+        "workflow",
+        "state-machine",
+        "sla-monitor",
+        "laraflow",
+        "bumba"
+    ],
+    "license": "MIT",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Bumba",
+            "email": "carlos.calulo@etic.co.ao",
+            "role": "Main Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^10.0|^11.0|^12.0",
+        "illuminate/database": "^10.0|^11.0|^12.0",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "illuminate/console": "^10.0|^11.0|^12.0",
+        "spatie/laravel-model-states": "^2.5"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "phpunit/phpunit": "^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "LaraFlow\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "LaraFlow\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "LaraFlow\\LaraFlowServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

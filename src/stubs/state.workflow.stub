@@ -1,0 +1,46 @@
+<?php
+
+namespace {{namespace}};
+
+use Spatie\ModelStates\State;
+use Spatie\ModelStates\StateConfig;
+use App\States\Core\Transitions\GenericTransition;
+
+abstract class {{class}}Status extends State
+{
+    abstract public function label(): string;
+
+    public static function config(): StateConfig
+    {
+        return parent::config()
+            ->default(Pendente::class) // Define o estado inicial padrão
+            
+            // Exemplo de transição simples:
+            // ->allowTransition(Pendente::class, EmAnalise::class)
+
+            // Exemplo de transição complexa com o motor genérico:
+            /*
+            ->allowTransition(
+                EmAnalise::class, 
+                Aprovado::class, 
+                new GenericTransition(
+                    roles: ['Admin', 'Subscritor'],
+                    permissions: ['aprovar-registro'],
+                    dependencies: [
+                        // 'relacao.status' => EstadoRequerido::class
+                    ],
+                    guards: [
+                        Guards\Validar{{class}}::class,
+                    ],
+                    actions: [
+                        // Actions executadas dentro da Transaction
+                    ],
+                    afterCommit: [
+                        // Actions executadas pós-commit (Fila / APIs)
+                    ]
+                )
+            )
+            */
+            ;
+    }
+}
