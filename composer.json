@@ -49,7 +49,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "LaraFlow\\LaraFlowServiceProvider"
+                "LaraFlow\\WorkflowServiceProvider"
             ]
         }
     },
