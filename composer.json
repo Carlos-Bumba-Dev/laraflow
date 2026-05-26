@@ -8,8 +8,7 @@
         "sla-monitor",
         "laraflow",
         "bumba",
-        "workflow-engine",
-        "orchestration"
+        "workflow-engine"
     ],
     "license": "MIT",
     "type": "library",
