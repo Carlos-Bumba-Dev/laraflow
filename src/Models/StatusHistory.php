@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraFlow\Workflow\Models;
+namespace LaraFlow\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;

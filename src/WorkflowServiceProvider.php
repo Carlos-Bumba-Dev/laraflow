@@ -1,9 +1,9 @@
 <?php
 
-namespace LaraFlow\Workflow;
+namespace LaraFlow;
 
 use Illuminate\Support\ServiceProvider;
-use LaraFlow\Workflow\Console\MakeWorkflowCommand;
+use LaraFlow\Console\MakeWorkflowCommand;
 
 class WorkflowServiceProvider extends ServiceProvider
 {

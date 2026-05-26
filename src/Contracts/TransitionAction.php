@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraFlow\Workflow\Contracts;
+namespace LaraFlow\Contracts;
 
 use Illuminate\Database\Eloquent\Model;
 

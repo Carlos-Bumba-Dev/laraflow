@@ -1,12 +1,12 @@
 <?php
 
-namespace LaraFlow\Workflow\Console;
+namespace LaraFlow\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use LaraFlow\Workflow\Contracts\HasSla;
-use LaraFlow\Workflow\Contracts\HasEarlyWarning;
-use LaraFlow\Workflow\Events\SlaBreached;
+use LaraFlow\Contracts\HasSla;
+use LaraFlow\Contracts\HasEarlyWarning;
+use LaraFlow\Events\SlaBreached;
 use Carbon\Carbon;
 
 class WorkflowCheckSlasCommand extends Command

@@ -105,7 +105,7 @@ return [
 Adicione a trait `HasStateHistory` e faça o mapeamento do status usando o Spatie States apontando para a nossa `GenericTransition`:
 
 ```php
-use LaraFlow\Workflow\Traits\HasStateHistory;
+use LaraFlow\Traits\HasStateHistory;
 use Spatie\ModelStates\HasStates;
 
 class Reclamacao extends Model

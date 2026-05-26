@@ -1,6 +1,6 @@
 <?php
 
-namespace LaraFlow\Workflow\Events;
+namespace LaraFlow\Events;
 
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Database\Eloquent\Model;
