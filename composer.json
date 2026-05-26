@@ -7,7 +7,9 @@
         "state-machine",
         "sla-monitor",
         "laraflow",
-        "bumba"
+        "bumba",
+        "workflow-engine",
+        "orchestration"
     ],
     "license": "MIT",
     "type": "library",
