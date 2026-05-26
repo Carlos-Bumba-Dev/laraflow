@@ -1,64 +1,129 @@
 <?php
 
-namespace SeuNome\Workflow\Console;
+namespace LaraFlow\Workflow\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use SeuNome\Workflow\Contracts\HasSla;
-use SeuNome\Workflow\Events\SlaBreached;
+use LaraFlow\Workflow\Contracts\HasSla;
+use LaraFlow\Workflow\Contracts\HasEarlyWarning;
+use LaraFlow\Workflow\Events\SlaBreached;
+use Carbon\Carbon;
 
 class WorkflowCheckSlasCommand extends Command
 {
-    protected $signature = 'workflow:check-slas';
-    protected $description = 'Varre o ecossistema em busca de registros com status estagnados fora do SLA';
+    protected $signature = 'workflow:check-slas {--model= : Filtrar varredura por um model específico}';
+    protected $description = 'Varre de forma proativa o ecossistema aplicando ações preventivas e compulsórias de SLA';
 
     public function handle(): int
     {
-        $this->info("Iniciando varredura de SLAs corporativos...");
+        $this->info("Iniciando varredura e higienização de SLAs corporativos...");
 
-        // 1. Busca os últimos registros de transição de status de forma atômica
-        // aglutinando pelo par de colunas polimórficas (model_type e model_id)
-        $latestTransitions = DB::table('status_histories')
-            ->select('model_type', 'model_id', 'to_state', 'created_at')
-            ->whereIn('id', function ($query) {
-                $query->select(DB::raw('MAX(id)'))
-                    ->from('status_histories')
-                    ->groupBy('model_type', 'model_id');
-            })
-            ->get();
+        // 1. PERFORMANCE & ARQUITETURA: Em vez de varrer a tabela gigante de históricos,
+        // nós varremos apenas a tabela de mapeamento de extensões e os modelos que implementam a trait do LaraFlow.
+        // Nota: Para este motor automatizado, o ideal é consultar os modelos ativos cujo status possui SLA.
 
-        foreach ($latestTransitions as $transition) {
-            $stateClass = $transition->to_state;
+        // Vamos simular a captura das classes que estão sob monitoramento de histórico.
+        // Em produção, podes listar os models mapeados no config do teu package.
+        $monitoredModels = $this->option('model') ? [$this->option('model')] : $this->getRegisteredWorkflowModels();
 
-            // Se o estado atual não implementa a interface de SLA, ignore-o imediatamente
-            if (!is_subclass_of($stateClass, HasSla::class)) {
+        foreach ($monitoredModels as $modelClass) {
+            if (!method_exists($modelClass, 'statusHistories')) {
                 continue;
             }
 
-            // Instancia o estado de forma leve para ler o timeout configurado
-            $stateInstance = app($stateClass);
-            $allowedMinutes = $stateInstance->slaTimeoutInMinutes();
+            $this->comment("Varrendo instâncias ativas de: {$modelClass}");
 
-            $entryTime = \Carbon\Carbon::parse($transition->created_at);
-            $minutesSpent = now()->diffInMinutes($entryTime);
+            // Buscamos apenas os registros cujo status atual implementa o contrato de SLA
+            // Usamos chunk para evitar estouro de memória RAM (Prática Enterprise)
+            $modelClass::query()->chunk(100, function ($models) use ($modelClass) {
+                foreach ($models as $model) {
 
-            // Se o tempo gasto na fase for maior que o permitido, temos um estouro!
-            if ($minutesSpent > $allowedMinutes) {
-                $minutesOverdue = $minutesSpent - $allowedMinutes;
+                    $stateInstance = $model->status;
+                    $stateClass = get_class($stateInstance);
 
-                // Resgata o Model real de forma dinâmica usando o polimorfismo do Eloquent
-                $model = $transition->model_type::find($transition->model_id);
+                    if (!$stateInstance instanceof HasSla) {
+                        continue;
+                    }
 
-                if ($model && $model->status->toLivewire() === $stateInstance->toLivewire()) {
-                    $this->warn("⚠️ VIOLAÇÃO: [{$transition->model_type}] ID #{$transition->model_id} está travado em [{$stateInstance->label()}] por {$minutesOverdue} minutos além do SLA.");
-                    
-                    // Dispara o evento para o ecossistema (notificar gerentes, Webhooks, Slack, etc.)
-                    event(new SlaBreached($model, $stateClass, $minutesOverdue));
+                    // Captura o momento em que entrou neste estado específico (último registro do histórico)
+                    $latestTransition = $model->statusHistories()
+                        ->where('to_state', $stateClass)
+                        ->latest('id')
+                        ->first();
+
+                    if (!$latestTransition) {
+                        continue;
+                    }
+
+                    $entryTime = Carbon::parse($latestTransition->created_at);
+                    $minutesSpent = now()->diffInMinutes($entryTime);
+
+                    // Cálculo do timeout dinâmico considerando extensões concedidas
+                    $baseMinutes = $stateInstance->slaTimeoutInMinutes();
+                    $totalExtensions = DB::table('workflow_extensions')
+                        ->where('model_type', $modelClass)
+                        ->where('model_id', $model->id)
+                        ->where('state', $stateClass)
+                        ->sum('extended_minutes');
+
+                    $slaTimeout = $baseMinutes + $totalExtensions;
+                    $id = $model->getKey();
+
+                    // Executa a validação de camadas sob isolamento transacional e Lock de linha
+                    DB::transaction(function () use ($model, $stateInstance, $stateClass, $minutesSpent, $slaTimeout, $id) {
+
+                        // Recarrega travando para evitar concorrência com requisições HTTP simultâneas
+                        $lockedModel = $model->newQuery()->lockForUpdate()->find($id);
+
+                        if (!$lockedModel || get_class($lockedModel->status) !== $stateClass) {
+                            return; // O estado mudou nos milissegundos anteriores, ignora.
+                        }
+
+                        // =========================================================================
+                        // CAMADA 1: PRIORIDADE ABSOLUTA - O prazo estourou completamente?
+                        // =========================================================================
+                        if ($minutesSpent >= $slaTimeout) {
+                            $this->warn("🚨 ID #{$id} estourou o prazo máximo ({$minutesSpent}/{$slaTimeout} min). Movendo para fallback final.");
+
+                            // Dispara evento forense antes de mover
+                            $minutesOverdue = $minutesSpent - $slaTimeout;
+                            event(new SlaBreached($lockedModel, $stateClass, $minutesOverdue));
+
+                            // Executa a transição compulsória automática usando a nossa GenericTransition interna
+                            $lockedModel->status->transitionTo($stateInstance->autoTransitionTo(), [
+                                'reason' => "Transição compulsória automática: Violação crítica de SLA excedida por {$minutesOverdue} minutos."
+                            ]);
+
+                            return;
+                        }
+
+                        // =========================================================================
+                        // CAMADA 2: JANELA PREVENTIVA - Zona Amarela (Early Warning)
+                        // =========================================================================
+                        if (
+                            $stateInstance instanceof HasEarlyWarning &&
+                            $minutesSpent >= ($slaTimeout - $stateInstance->earlyWarningMinutesBeforeTimeout())
+                        ) {
+                            $this->info("⚠️ ID #{$id} entrou na janela de alerta ({$minutesSpent}/{$slaTimeout} min). Disparando ação proativa.");
+
+                            $lockedModel->status->transitionTo($stateInstance->earlyWarningTransitionTo(), [
+                                'reason' => 'Transição preventiva automática: Registro atingiu a zona amarela de proximidade do limite de SLA.'
+                            ]);
+                        }
+                    });
                 }
-            }
+            });
         }
 
-        $this->info("Varredura concluída com sucesso.");
+        $this->info("Varredura e mitigação de SLAs concluída.");
         return Command::SUCCESS;
+    }
+
+    /**
+     * Auxiliar para obter os modelos registrados que utilizam o ecossistema.
+     */
+    protected function getRegisteredWorkflowModels(): array
+    {
+        return config('laraflow.monitored_models', []);
     }
 }

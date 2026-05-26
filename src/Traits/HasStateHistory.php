@@ -1,10 +1,10 @@
 <?php
 
-namespace SeuNome\Workflow\Traits;
+namespace LaraFlow\Workflow\Traits;
 
 use Illuminate\Database\Eloquent\Relations\MorphMany;
-use SeuNome\Workflow\Models\StatusHistory;
-use SeuNome\Workflow\Models\WorkflowExtension;
+use LaraFlow\Workflow\Models\StatusHistory;
+use LaraFlow\Workflow\Models\WorkflowExtension;
 
 trait HasStateHistory
 {

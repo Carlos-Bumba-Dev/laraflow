@@ -2,7 +2,7 @@
 
 namespace {{namespace}}\Guards;
 
-use SeuNome\Workflow\Contracts\TransitionGuard;
+use LaraFlow\Workflow\Contracts\TransitionGuard;
 use Illuminate\Database\Eloquent\Model;
 
 class Validar{{class}} implements TransitionGuard

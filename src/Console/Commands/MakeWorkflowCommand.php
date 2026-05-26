@@ -1,6 +1,6 @@
 <?php
 
-namespace SeuNome\Workflow\Console;
+namespace LaraFlow\Workflow\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
